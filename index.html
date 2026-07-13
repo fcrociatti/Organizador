@@ -1,0 +1,788 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Painel de Prioridades</title>
+<style>
+  :root{
+    --bg:#14161c;
+    --surface:#1c1f28;
+    --surface-2:#242836;
+    --border:#313644;
+    --text:#e8e9ed;
+    --muted:#8b8f9c;
+    --mono:'JetBrains Mono','SF Mono',Consolas,monospace;
+    --sans:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
+
+    --critica:#e5484d;
+    --alta:#f5a623;
+    --media:#4c9fe8;
+    --baixa:#5fb89c;
+
+    --afazer:#8b8f9c;
+    --andamento:#f5a623;
+    --concluida:#5fb89c;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    background:var(--bg);
+    color:var(--text);
+    font-family:var(--sans);
+    -webkit-font-smoothing:antialiased;
+  }
+  .wrap{
+    max-width:920px;
+    margin:0 auto;
+    padding:32px 20px 80px;
+  }
+  header{
+    display:flex;
+    justify-content:space-between;
+    align-items:flex-end;
+    margin-bottom:24px;
+    flex-wrap:wrap;
+    gap:12px;
+  }
+  header h1{
+    font-family:var(--mono);
+    font-size:20px;
+    font-weight:600;
+    letter-spacing:0.5px;
+    margin:0;
+    text-transform:uppercase;
+  }
+  header .sub{
+    color:var(--muted);
+    font-size:13px;
+    margin-top:4px;
+  }
+  .counts{
+    display:flex;
+    gap:14px;
+    font-family:var(--mono);
+    font-size:12px;
+    color:var(--muted);
+  }
+  .counts b{color:var(--text);font-weight:600;}
+
+  .day-nav{
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    gap:14px;
+    background:var(--surface);
+    border:1px solid var(--border);
+    border-radius:10px;
+    padding:12px 16px;
+    margin-bottom:20px;
+  }
+  .day-nav button.icon-btn{
+    padding:8px 12px;
+    font-size:14px;
+  }
+  .day-nav-current{
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    gap:2px;
+    min-width:220px;
+  }
+  .day-nav-current #day-label{
+    font-size:14px;
+    font-weight:600;
+    text-transform:capitalize;
+  }
+  .day-nav-current input[type=date]{
+    background:transparent;
+    border:none;
+    color:var(--muted);
+    font-family:var(--mono);
+    font-size:11px;
+    padding:0;
+    width:auto;
+    cursor:pointer;
+  }
+  .day-nav-current input[type=date]::-webkit-calendar-picker-indicator{
+    filter:invert(0.6);
+    cursor:pointer;
+  }
+  .btn-today{
+    background:var(--surface-2);
+    color:var(--text);
+    border:1px solid var(--border);
+    padding:8px 14px;
+    font-size:12px;
+  }
+  .btn-today:hover{border-color:#5c6479;}
+
+  .panel{
+    background:var(--surface);
+    border:1px solid var(--border);
+    border-radius:10px;
+    padding:18px;
+    margin-bottom:24px;
+  }
+  .panel h2{
+    font-size:12px;
+    text-transform:uppercase;
+    letter-spacing:0.8px;
+    color:var(--muted);
+    margin:0 0 14px;
+    font-weight:600;
+  }
+  .form-grid{
+    display:grid;
+    grid-template-columns:2fr 1fr 1fr 1fr auto;
+    gap:10px;
+    align-items:end;
+  }
+  @media (max-width:720px){
+    .form-grid{grid-template-columns:1fr 1fr;}
+  }
+  label{
+    display:block;
+    font-size:11px;
+    color:var(--muted);
+    margin-bottom:5px;
+    text-transform:uppercase;
+    letter-spacing:0.4px;
+  }
+  input[type=text], select{
+    width:100%;
+    background:var(--surface-2);
+    border:1px solid var(--border);
+    color:var(--text);
+    border-radius:6px;
+    padding:9px 10px;
+    font-size:14px;
+    font-family:var(--sans);
+    outline:none;
+  }
+  input[type=text]:focus, select:focus{
+    border-color:#5c6479;
+  }
+  button{
+    cursor:pointer;
+    border:none;
+    border-radius:6px;
+    font-family:var(--sans);
+    font-weight:600;
+    font-size:13px;
+  }
+  .btn-primary{
+    background:#e8e9ed;
+    color:#14161c;
+    padding:9px 18px;
+    white-space:nowrap;
+  }
+  .btn-primary:hover{background:#fff;}
+  .btn-primary:disabled{opacity:0.4;cursor:not-allowed;}
+
+  .list{
+    display:flex;
+    flex-direction:column;
+    gap:8px;
+  }
+  .task{
+    display:grid;
+    grid-template-columns:34px 1fr auto auto auto auto;
+    align-items:center;
+    gap:12px;
+    background:var(--surface);
+    border:1px solid var(--border);
+    border-left:4px solid var(--muted);
+    border-radius:8px;
+    padding:12px 14px;
+  }
+  .task.crit-4{border-left-color:var(--critica);}
+  .task.crit-3{border-left-color:var(--alta);}
+  .task.crit-2{border-left-color:var(--media);}
+  .task.crit-1{border-left-color:var(--baixa);}
+  .task.done{opacity:0.55;}
+
+  .rank{
+    font-family:var(--mono);
+    font-size:13px;
+    color:var(--muted);
+    text-align:center;
+  }
+  .desc{
+    font-size:14px;
+    min-width:0;
+    overflow:hidden;
+    text-overflow:ellipsis;
+    white-space:nowrap;
+  }
+  .task.done .desc{text-decoration:line-through;}
+
+  .tag{
+    font-family:var(--mono);
+    font-size:11px;
+    padding:4px 8px;
+    border-radius:5px;
+    white-space:nowrap;
+    text-transform:uppercase;
+    letter-spacing:0.3px;
+  }
+  .tag-crit-4{background:rgba(229,72,77,0.15);color:var(--critica);}
+  .tag-crit-3{background:rgba(245,166,35,0.15);color:var(--alta);}
+  .tag-crit-2{background:rgba(76,159,232,0.15);color:var(--media);}
+  .tag-crit-1{background:rgba(95,184,156,0.15);color:var(--baixa);}
+
+  .effort-dots{
+    display:flex;
+    gap:3px;
+    font-family:var(--mono);
+  }
+  .dot{
+    width:7px;height:7px;border-radius:50%;
+    background:var(--border);
+  }
+  .dot.on{background:var(--text);}
+
+  .status-tag{
+    font-family:var(--mono);
+    font-size:11px;
+    padding:4px 8px;
+    border-radius:5px;
+    white-space:nowrap;
+    text-transform:uppercase;
+  }
+  .status-afazer{background:rgba(139,143,156,0.15);color:var(--afazer);}
+  .status-andamento{background:rgba(245,166,35,0.15);color:var(--andamento);}
+  .status-concluida{background:rgba(95,184,156,0.15);color:var(--concluida);}
+
+  select.status-select{
+    font-family:var(--mono);
+    font-size:11px;
+    padding:4px 8px;
+    border-radius:5px;
+    white-space:nowrap;
+    text-transform:uppercase;
+    border:1px solid transparent;
+    width:auto;
+    cursor:pointer;
+    appearance:none;
+    -webkit-appearance:none;
+  }
+  select.status-select:hover{border-color:currentColor;}
+  select.status-select option{
+    background:var(--surface-2);
+    color:var(--text);
+    text-transform:none;
+  }
+
+  .actions{
+    display:flex;
+    gap:6px;
+  }
+  .icon-btn{
+    background:transparent;
+    color:var(--muted);
+    border:1px solid var(--border);
+    border-radius:6px;
+    padding:6px 9px;
+    font-size:12px;
+  }
+  .icon-btn:hover{color:var(--text);border-color:#5c6479;}
+  .icon-btn.danger:hover{color:var(--critica);border-color:var(--critica);}
+
+  .empty{
+    text-align:center;
+    color:var(--muted);
+    padding:50px 20px;
+    font-size:14px;
+  }
+  .empty b{color:var(--text);}
+
+  .modal-overlay{
+    position:fixed;inset:0;
+    background:rgba(0,0,0,0.6);
+    display:flex;align-items:center;justify-content:center;
+    z-index:50;
+  }
+  .modal{
+    background:var(--surface);
+    border:1px solid var(--border);
+    border-radius:10px;
+    padding:20px;
+    width:100%;
+    max-width:440px;
+  }
+  .modal h2{margin-top:0;}
+  .modal .form-grid{grid-template-columns:1fr 1fr;}
+  .modal .desc-field{grid-column:1/-1;}
+  .modal-actions{
+    display:flex;
+    justify-content:flex-end;
+    gap:8px;
+    margin-top:16px;
+  }
+  .btn-ghost{
+    background:transparent;
+    border:1px solid var(--border);
+    color:var(--text);
+    padding:9px 16px;
+  }
+  .btn-ghost:hover{border-color:#5c6479;}
+
+  .hidden{display:none;}
+  .legend{
+    font-size:11px;
+    color:var(--muted);
+    margin-top:6px;
+    font-family:var(--mono);
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div>
+      <h1>Painel de prioridades</h1>
+      <div class="sub">Ordenado por criticidade &rarr; esforço &rarr; status</div>
+    </div>
+    <div style="display:flex; align-items:center; gap:14px;">
+      <div class="counts" id="counts"></div>
+      <div style="display:flex; gap:8px; align-items:center;">
+        <label style="display:flex; align-items:center; gap:6px; font-size:12px; color:var(--muted); text-transform:none; letter-spacing:0; cursor:pointer;">
+          <input type="checkbox" id="show-done" style="width:auto; accent-color:#5fb89c; cursor:pointer;">
+          Mostrar concluídos
+        </label>
+        <button class="icon-btn" onclick="exportTasks()">Exportar</button>
+        <button class="icon-btn" onclick="openImport()">Importar</button>
+      </div>
+    </div>
+  </header>
+
+  <div class="day-nav">
+    <button class="icon-btn" onclick="changeDay(-1)" title="Dia anterior">◀</button>
+    <div class="day-nav-current">
+      <span id="day-label"></span>
+      <input type="date" id="day-picker">
+    </div>
+    <button class="icon-btn" onclick="changeDay(1)" title="Próximo dia">▶</button>
+    <button class="btn-today" onclick="goToday()">Hoje</button>
+  </div>
+
+  <div class="panel">
+    <h2>Nova tarefa</h2>
+    <div class="form-grid">
+      <div>
+        <label for="f-desc">Descrição</label>
+        <input type="text" id="f-desc" placeholder="Ex: Revisar proposta comercial">
+      </div>
+      <div>
+        <label for="f-crit">Criticidade</label>
+        <select id="f-crit">
+          <option value="4">Crítica</option>
+          <option value="3">Alta</option>
+          <option value="2" selected>Média</option>
+          <option value="1">Baixa</option>
+        </select>
+      </div>
+      <div>
+        <label for="f-effort">Esforço</label>
+        <select id="f-effort">
+          <option value="1">1 - Muito baixo</option>
+          <option value="2" selected>2 - Baixo</option>
+          <option value="3">3 - Médio</option>
+          <option value="4">4 - Alto</option>
+          <option value="5">5 - Muito alto</option>
+        </select>
+      </div>
+      <div>
+        <label for="f-status">Status</label>
+        <select id="f-status">
+          <option value="afazer" selected>A fazer</option>
+          <option value="andamento">Em andamento</option>
+          <option value="concluida">Concluída</option>
+        </select>
+      </div>
+      <button class="btn-primary" id="add-btn">Adicionar</button>
+    </div>
+  </div>
+
+  <div id="list" class="list"></div>
+</div>
+
+<div id="modal-root"></div>
+
+<script>
+const STORAGE_KEY = 'tarefas';
+const PREF_KEY = 'tarefas_mostrar_concluidos';
+let tasks = [];
+let showDone = false;
+let currentDate = '';
+
+function todayISO(){
+  const d = new Date();
+  return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
+}
+function addDaysISO(iso, n){
+  const [y,m,d] = iso.split('-').map(Number);
+  const dt = new Date(y, m-1, d);
+  dt.setDate(dt.getDate() + n);
+  return dt.getFullYear() + '-' + String(dt.getMonth()+1).padStart(2,'0') + '-' + String(dt.getDate()).padStart(2,'0');
+}
+function formatDateDisplay(iso){
+  const [y,m,d] = iso.split('-').map(Number);
+  const dt = new Date(y, m-1, d);
+  const weekday = dt.toLocaleDateString('pt-BR', { weekday: 'long' });
+  const rest = dt.toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' });
+  return weekday.charAt(0).toUpperCase() + weekday.slice(1) + ', ' + rest;
+}
+currentDate = todayISO();
+
+const CRIT_LABEL = {4:'Crítica',3:'Alta',2:'Média',1:'Baixa'};
+const STATUS_LABEL = {afazer:'A fazer',andamento:'Em andamento',concluida:'Concluída'};
+const STATUS_CLASS = {afazer:'status-afazer',andamento:'status-andamento',concluida:'status-concluida'};
+const STATUS_WEIGHT = {andamento:0, afazer:1, concluida:2};
+
+function uid(){
+  return 't' + Date.now().toString(36) + Math.random().toString(36).slice(2,7);
+}
+
+const SEED_TASKS = [
+  { id: uid(), desc: "Falar com a Tek Log com relação as instalações", crit: 4, effort: 2, status: "afazer", date: todayISO() },
+  { id: uid(), desc: "Ajudar Enzo com as D.I's (ATRASADO)", crit: 4, effort: 2, status: "concluida", date: todayISO() },
+  { id: uid(), desc: "Reunião Bolt às 14h", crit: 4, effort: 1, status: "concluida", date: todayISO() },
+  { id: uid(), desc: "Verificar 3 casos de erros que a TLS pediu prioridade hoje", crit: 4, effort: 2, status: "afazer", date: todayISO() },
+  { id: uid(), desc: "Reunião Torres 16h", crit: 4, effort: 1, status: "concluida", date: todayISO() },
+  { id: uid(), desc: "Verificar CIOTs não enviados na Torres", crit: 4, effort: 2, status: "concluida", date: todayISO() },
+  { id: uid(), desc: "Criar itens dos métodos do Projeto Focado", crit: 4, effort: 3, status: "afazer", date: todayISO() },
+  { id: uid(), desc: "Verificar listagem de erros passada pela TLS na última planning", crit: 4, effort: 2, status: "afazer", date: todayISO() },
+  { id: uid(), desc: "Ajudar a Gisele com CIOTs para efetivação", crit: 4, effort: 2, status: "concluida", date: todayISO() },
+  { id: uid(), desc: "Verificar a geração de CIOT na Torres", crit: 3, effort: 2, status: "afazer", date: todayISO() },
+  { id: uid(), desc: "Ajudar o Kaic com seus itens", crit: 3, effort: 2, status: "concluida", date: todayISO() },
+  { id: uid(), desc: "Enviar o artefato do AD do WMS a TLS", crit: 2, effort: 2, status: "afazer", date: todayISO() }
+];
+
+async function loadTasks(){
+  try{
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if(raw){
+      tasks = JSON.parse(raw);
+    } else {
+      tasks = SEED_TASKS;
+      await saveTasks();
+    }
+  }catch(e){
+    tasks = [];
+  }
+  render();
+}
+
+async function saveTasks(){
+  try{
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(tasks));
+  }catch(e){
+    console.error('Falha ao salvar', e);
+  }
+}
+
+function sortByPriority(arr){
+  return [...arr].sort((a,b)=>{
+    if(b.crit !== a.crit) return b.crit - a.crit;
+    if(a.effort !== b.effort) return a.effort - b.effort;
+    return STATUS_WEIGHT[a.status] - STATUS_WEIGHT[b.status];
+  });
+}
+
+function effortDots(n){
+  let html = '<div class="effort-dots">';
+  for(let i=1;i<=5;i++){
+    html += `<span class="dot ${i<=n?'on':''}"></span>`;
+  }
+  html += '</div>';
+  return html;
+}
+
+function escapeHtml(s){
+  const d = document.createElement('div');
+  d.textContent = s;
+  return d.innerHTML;
+}
+
+function render(){
+  const listEl = document.getElementById('list');
+  const countsEl = document.getElementById('counts');
+  const dayTasks = tasks.filter(t => t.date === currentDate);
+  const sorted = sortByPriority(dayTasks).filter(t => showDone || t.status !== 'concluida');
+
+  const total = dayTasks.length;
+  const done = dayTasks.filter(t=>t.status==='concluida').length;
+  countsEl.innerHTML = `<span><b>${total}</b> no dia</span><span><b>${done}</b> concluídas</span>`;
+
+  if(sorted.length === 0){
+    const msg = (total > 0 && !showDone)
+      ? `<b>Tudo visível está concluído.</b><br>Ative "Mostrar concluídos" para ver essas tarefas.`
+      : `<b>Nenhuma tarefa neste dia.</b><br>Adicione uma acima ou navegue para outro dia.`;
+    listEl.innerHTML = `<div class="empty">${msg}</div>`;
+    return;
+  }
+
+  listEl.innerHTML = sorted.map((t, idx) => `
+    <div class="task crit-${t.crit} ${t.status==='concluida'?'done':''}">
+      <div class="rank">${String(idx+1).padStart(2,'0')}</div>
+      <div class="desc" title="${escapeHtml(t.desc)}">${escapeHtml(t.desc)}</div>
+      <span class="tag tag-crit-${t.crit}">${CRIT_LABEL[t.crit]}</span>
+      ${effortDots(t.effort)}
+      <select class="status-select ${STATUS_CLASS[t.status]}" onclick="event.stopPropagation()" onchange="changeStatus('${t.id}', this.value)">
+        <option value="afazer" ${t.status==='afazer'?'selected':''}>A fazer</option>
+        <option value="andamento" ${t.status==='andamento'?'selected':''}>Em andamento</option>
+        <option value="concluida" ${t.status==='concluida'?'selected':''}>Concluída</option>
+      </select>
+      <div class="actions">
+        <button class="icon-btn" onclick="openOverflow('${t.id}')" title="Mover para outro dia">Transbordar</button>
+        <button class="icon-btn" onclick="openEdit('${t.id}')">Editar</button>
+        <button class="icon-btn danger" onclick="removeTask('${t.id}')">Excluir</button>
+      </div>
+    </div>
+  `).join('');
+}
+
+async function addTask(){
+  const descEl = document.getElementById('f-desc');
+  const desc = descEl.value.trim();
+  if(!desc) { descEl.focus(); return; }
+
+  const crit = parseInt(document.getElementById('f-crit').value, 10);
+  const effort = parseInt(document.getElementById('f-effort').value, 10);
+  const status = document.getElementById('f-status').value;
+
+  tasks.push({ id: uid(), desc, crit, effort, status, date: currentDate });
+  await saveTasks();
+  descEl.value = '';
+  descEl.focus();
+  render();
+}
+
+async function changeStatus(id, newStatus){
+  const t = tasks.find(x => x.id === id);
+  if(!t) return;
+  t.status = newStatus;
+  await saveTasks();
+  render();
+}
+
+function changeDay(delta){
+  currentDate = addDaysISO(currentDate, delta);
+  syncDayUI();
+  render();
+}
+
+function goToday(){
+  currentDate = todayISO();
+  syncDayUI();
+  render();
+}
+
+function syncDayUI(){
+  document.getElementById('day-label').textContent = formatDateDisplay(currentDate);
+  document.getElementById('day-picker').value = currentDate;
+}
+
+function openOverflow(id){
+  const t = tasks.find(x => x.id === id);
+  if(!t) return;
+  const defaultDate = addDaysISO(t.date, 1);
+  const root = document.getElementById('modal-root');
+  root.innerHTML = `
+    <div class="modal-overlay" id="overflow-overlay">
+      <div class="modal">
+        <h2>Transbordar tarefa</h2>
+        <p style="font-size:13px; color:var(--muted); margin-top:-6px;">"${escapeHtml(t.desc)}"</p>
+        <label for="overflow-date">Mover para o dia</label>
+        <input type="date" id="overflow-date" value="${defaultDate}">
+        <div class="modal-actions">
+          <button class="btn-ghost" onclick="closeEdit()">Cancelar</button>
+          <button class="btn-primary" onclick="doOverflow('${id}')">Transbordar</button>
+        </div>
+      </div>
+    </div>
+  `;
+  document.getElementById('overflow-overlay').addEventListener('click', (e)=>{
+    if(e.target.id === 'overflow-overlay') closeEdit();
+  });
+}
+
+async function doOverflow(id){
+  const t = tasks.find(x => x.id === id);
+  if(!t) return;
+  const newDate = document.getElementById('overflow-date').value;
+  if(!newDate) return;
+  t.date = newDate;
+  await saveTasks();
+  closeEdit();
+  render();
+}
+
+async function removeTask(id){
+  tasks = tasks.filter(t => t.id !== id);
+  await saveTasks();
+  render();
+}
+
+function openEdit(id){
+  const t = tasks.find(x => x.id === id);
+  if(!t) return;
+  const root = document.getElementById('modal-root');
+  root.innerHTML = `
+    <div class="modal-overlay" id="overlay">
+      <div class="modal">
+        <h2>Editar tarefa</h2>
+        <div class="form-grid">
+          <div class="desc-field">
+            <label for="e-desc">Descrição</label>
+            <input type="text" id="e-desc" value="${escapeHtml(t.desc)}">
+          </div>
+          <div>
+            <label for="e-date">Dia</label>
+            <input type="date" id="e-date" value="${t.date}">
+          </div>
+          <div>
+            <label for="e-crit">Criticidade</label>
+            <select id="e-crit">
+              <option value="4" ${t.crit===4?'selected':''}>Crítica</option>
+              <option value="3" ${t.crit===3?'selected':''}>Alta</option>
+              <option value="2" ${t.crit===2?'selected':''}>Média</option>
+              <option value="1" ${t.crit===1?'selected':''}>Baixa</option>
+            </select>
+          </div>
+          <div>
+            <label for="e-effort">Esforço</label>
+            <select id="e-effort">
+              <option value="1" ${t.effort===1?'selected':''}>1 - Muito baixo</option>
+              <option value="2" ${t.effort===2?'selected':''}>2 - Baixo</option>
+              <option value="3" ${t.effort===3?'selected':''}>3 - Médio</option>
+              <option value="4" ${t.effort===4?'selected':''}>4 - Alto</option>
+              <option value="5" ${t.effort===5?'selected':''}>5 - Muito alto</option>
+            </select>
+          </div>
+          <div>
+            <label for="e-status">Status</label>
+            <select id="e-status">
+              <option value="afazer" ${t.status==='afazer'?'selected':''}>A fazer</option>
+              <option value="andamento" ${t.status==='andamento'?'selected':''}>Em andamento</option>
+              <option value="concluida" ${t.status==='concluida'?'selected':''}>Concluída</option>
+            </select>
+          </div>
+        </div>
+        <div class="modal-actions">
+          <button class="btn-ghost" onclick="closeEdit()">Cancelar</button>
+          <button class="btn-primary" onclick="saveEdit('${id}')">Salvar</button>
+        </div>
+      </div>
+    </div>
+  `;
+  document.getElementById('overlay').addEventListener('click', (e)=>{
+    if(e.target.id === 'overlay') closeEdit();
+  });
+}
+
+function closeEdit(){
+  document.getElementById('modal-root').innerHTML = '';
+}
+
+async function saveEdit(id){
+  const t = tasks.find(x => x.id === id);
+  if(!t) return;
+  const desc = document.getElementById('e-desc').value.trim();
+  if(!desc) return;
+  t.desc = desc;
+  t.date = document.getElementById('e-date').value || t.date;
+  t.crit = parseInt(document.getElementById('e-crit').value, 10);
+  t.effort = parseInt(document.getElementById('e-effort').value, 10);
+  t.status = document.getElementById('e-status').value;
+  await saveTasks();
+  closeEdit();
+  render();
+}
+
+function exportTasks(){
+  const blob = new Blob([JSON.stringify(tasks, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'tarefas.json';
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+function openImport(){
+  const root = document.getElementById('modal-root');
+  root.innerHTML = `
+    <div class="modal-overlay" id="import-overlay">
+      <div class="modal">
+        <h2>Importar tarefas</h2>
+        <p style="font-size:13px; color:var(--muted); margin-top:-6px;">Cole um JSON exportado por este app. As tarefas serão adicionadas às já existentes — tarefas sem data vão para o dia aberto na tela (${formatDateDisplay(currentDate)}).</p>
+        <textarea id="import-text" style="width:100%; min-height:160px; background:var(--surface-2); border:1px solid var(--border); color:var(--text); border-radius:6px; padding:10px; font-family:var(--mono); font-size:12px;" placeholder='[{"desc":"Exemplo","crit":4,"effort":2,"status":"afazer"}]'></textarea>
+        <div class="modal-actions">
+          <button class="btn-ghost" onclick="closeEdit()">Cancelar</button>
+          <button class="btn-primary" onclick="doImport()">Importar</button>
+        </div>
+      </div>
+    </div>
+  `;
+  document.getElementById('import-overlay').addEventListener('click', (e)=>{
+    if(e.target.id === 'import-overlay') closeEdit();
+  });
+}
+
+async function doImport(){
+  const raw = document.getElementById('import-text').value.trim();
+  if(!raw) return;
+  try{
+    const parsed = JSON.parse(raw);
+    if(!Array.isArray(parsed)) throw new Error('formato inválido');
+    const imported = parsed.map(t => ({
+      id: uid(),
+      desc: String(t.desc || '').trim(),
+      date: /^\d{4}-\d{2}-\d{2}$/.test(t.date) ? t.date : currentDate,
+      crit: [1,2,3,4].includes(Number(t.crit)) ? Number(t.crit) : 2,
+      effort: [1,2,3,4,5].includes(Number(t.effort)) ? Number(t.effort) : 2,
+      status: ['afazer','andamento','concluida'].includes(t.status) ? t.status : 'afazer'
+    })).filter(t => t.desc);
+    tasks = tasks.concat(imported);
+    await saveTasks();
+    closeEdit();
+    render();
+  }catch(e){
+    alert('JSON inválido. Verifique o formato e tente novamente.');
+  }
+}
+
+document.getElementById('add-btn').addEventListener('click', addTask);
+document.getElementById('f-desc').addEventListener('keydown', (e)=>{
+  if(e.key === 'Enter') addTask();
+});
+
+const showDoneEl = document.getElementById('show-done');
+try{
+  showDone = localStorage.getItem(PREF_KEY) === 'true';
+}catch(e){
+  showDone = false;
+}
+showDoneEl.checked = showDone;
+showDoneEl.addEventListener('change', ()=>{
+  showDone = showDoneEl.checked;
+  try{ localStorage.setItem(PREF_KEY, String(showDone)); }catch(e){}
+  render();
+});
+
+syncDayUI();
+document.getElementById('day-picker').addEventListener('change', (e)=>{
+  if(e.target.value){
+    currentDate = e.target.value;
+    syncDayUI();
+    render();
+  }
+});
+
+loadTasks();
+</script>
+</body>
+</html>
