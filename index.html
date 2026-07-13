@@ -445,20 +445,6 @@ function uid(){
   return 't' + Date.now().toString(36) + Math.random().toString(36).slice(2,7);
 }
 
-const SEED_TASKS = [
-  { id: uid(), desc: "Falar com a Tek Log com relação as instalações", crit: 4, effort: 2, status: "afazer", date: todayISO() },
-  { id: uid(), desc: "Ajudar Enzo com as D.I's (ATRASADO)", crit: 4, effort: 2, status: "concluida", date: todayISO() },
-  { id: uid(), desc: "Reunião Bolt às 14h", crit: 4, effort: 1, status: "concluida", date: todayISO() },
-  { id: uid(), desc: "Verificar 3 casos de erros que a TLS pediu prioridade hoje", crit: 4, effort: 2, status: "afazer", date: todayISO() },
-  { id: uid(), desc: "Reunião Torres 16h", crit: 4, effort: 1, status: "concluida", date: todayISO() },
-  { id: uid(), desc: "Verificar CIOTs não enviados na Torres", crit: 4, effort: 2, status: "concluida", date: todayISO() },
-  { id: uid(), desc: "Criar itens dos métodos do Projeto Focado", crit: 4, effort: 3, status: "afazer", date: todayISO() },
-  { id: uid(), desc: "Verificar listagem de erros passada pela TLS na última planning", crit: 4, effort: 2, status: "afazer", date: todayISO() },
-  { id: uid(), desc: "Ajudar a Gisele com CIOTs para efetivação", crit: 4, effort: 2, status: "concluida", date: todayISO() },
-  { id: uid(), desc: "Verificar a geração de CIOT na Torres", crit: 3, effort: 2, status: "afazer", date: todayISO() },
-  { id: uid(), desc: "Ajudar o Kaic com seus itens", crit: 3, effort: 2, status: "concluida", date: todayISO() },
-  { id: uid(), desc: "Enviar o artefato do AD do WMS a TLS", crit: 2, effort: 2, status: "afazer", date: todayISO() }
-];
 
 async function loadTasks(){
   try{
