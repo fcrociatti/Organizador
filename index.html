@@ -134,7 +134,7 @@
   }
   .form-grid{
     display:grid;
-    grid-template-columns:2fr 1fr 1fr 1fr auto;
+    grid-template-columns:2fr 1fr 1fr 1fr 1fr auto;
     gap:10px;
     align-items:end;
   }
@@ -149,7 +149,7 @@
     text-transform:uppercase;
     letter-spacing:0.4px;
   }
-  input[type=text], select{
+  input[type=text], select, .form-grid input[type=date], .modal input[type=date]{
     width:100%;
     background:var(--surface-2);
     border:1px solid var(--border);
@@ -160,7 +160,7 @@
     font-family:var(--sans);
     outline:none;
   }
-  input[type=text]:focus, select:focus{
+  input[type=text]:focus, select:focus, input[type=date]:focus{
     border-color:#5c6479;
   }
   button{
@@ -187,7 +187,7 @@
   }
   .task{
     display:grid;
-    grid-template-columns:34px 1fr auto auto auto auto;
+    grid-template-columns:34px 1fr auto auto auto auto auto;
     align-items:center;
     gap:12px;
     background:var(--surface);
@@ -230,6 +230,51 @@
   .tag-crit-3{background:rgba(245,166,35,0.15);color:var(--alta);}
   .tag-crit-2{background:rgba(76,159,232,0.15);color:var(--media);}
   .tag-crit-1{background:rgba(95,184,156,0.15);color:var(--baixa);}
+
+  /* Prazos */
+  .tag-due-atrasada{background:rgba(229,72,77,0.18);color:var(--critica);font-weight:600;}
+  .tag-due-hoje{background:rgba(245,166,35,0.18);color:var(--alta);font-weight:600;}
+  .tag-due-proxima{background:rgba(76,159,232,0.15);color:var(--media);}
+  .tag-due-tranquila{background:var(--surface-2);color:var(--muted);}
+  .tag-due-cumprida{background:rgba(95,184,156,0.15);color:var(--concluida);}
+  .tag-due-vazia{background:transparent;color:transparent;user-select:none;}
+  .task.atrasada{border-left-color:var(--critica);box-shadow:inset 0 0 0 1px rgba(229,72,77,0.25);}
+
+  .deadline-bar{
+    display:flex;
+    align-items:center;
+    gap:14px;
+    flex-wrap:wrap;
+    background:var(--surface);
+    border:1px solid var(--border);
+    border-left:4px solid var(--critica);
+    border-radius:8px;
+    padding:12px 14px;
+    margin-bottom:16px;
+    font-size:13px;
+  }
+  .deadline-bar.hidden{display:none;}
+  .deadline-bar .dl-title{
+    font-family:var(--mono);
+    font-size:11px;
+    text-transform:uppercase;
+    letter-spacing:0.5px;
+    color:var(--critica);
+  }
+  .deadline-bar .dl-item{
+    background:var(--surface-2);
+    border:1px solid var(--border);
+    border-radius:6px;
+    padding:4px 8px;
+    cursor:pointer;
+    color:var(--text);
+    font-size:12px;
+    max-width:260px;
+    overflow:hidden;
+    text-overflow:ellipsis;
+    white-space:nowrap;
+  }
+  .deadline-bar .dl-item:hover{border-color:var(--critica);}
 
   .effort-dots{
     display:flex;
@@ -401,9 +446,15 @@
           <option value="concluida">Concluída</option>
         </select>
       </div>
+      <div>
+        <label for="f-due">Prazo <span style="color:var(--muted);font-weight:400;">(opcional)</span></label>
+        <input type="date" id="f-due">
+      </div>
       <button class="btn-primary" id="add-btn">Adicionar</button>
     </div>
   </div>
+
+  <div id="deadline-bar" class="deadline-bar hidden"></div>
 
   <div id="list" class="list"></div>
 </div>
@@ -436,6 +487,32 @@ function formatDateDisplay(iso){
 }
 currentDate = todayISO();
 
+function daysBetweenISO(fromISO, toISO){
+  const [y1,m1,d1] = fromISO.split('-').map(Number);
+  const [y2,m2,d2] = toISO.split('-').map(Number);
+  return Math.round((Date.UTC(y2,m2-1,d2) - Date.UTC(y1,m1-1,d1)) / 86400000);
+}
+
+function formatDueShort(iso){
+  const [y,m,d] = iso.split('-').map(Number);
+  return String(d).padStart(2,'0') + '/' + String(m).padStart(2,'0');
+}
+
+// Traduz o prazo de uma tarefa em rótulo + classe visual, sempre relativo ao dia
+// real de hoje (não ao dia aberto na tela — atraso é atraso).
+function dueInfo(t){
+  if(!t.due) return { has:false, label:'', cls:'tag-due-vazia', overdue:false, rank:99999 };
+  if(t.status === 'concluida'){
+    return { has:true, label:'Concluída', cls:'tag-due-cumprida', overdue:false, rank:99998 };
+  }
+  const diff = daysBetweenISO(todayISO(), t.due);
+  if(diff < 0)   return { has:true, label:'Atrasada ' + (-diff) + 'd', cls:'tag-due-atrasada', overdue:true,  rank:diff };
+  if(diff === 0) return { has:true, label:'Vence hoje',                cls:'tag-due-hoje',     overdue:false, rank:0 };
+  if(diff === 1) return { has:true, label:'Vence amanhã',              cls:'tag-due-proxima',  overdue:false, rank:1 };
+  if(diff <= 7)  return { has:true, label:'Vence em ' + diff + 'd',    cls:'tag-due-proxima',  overdue:false, rank:diff };
+  return { has:true, label:formatDueShort(t.due), cls:'tag-due-tranquila', overdue:false, rank:diff };
+}
+
 const CRIT_LABEL = {4:'Crítica',3:'Alta',2:'Média',1:'Baixa'};
 const STATUS_LABEL = {afazer:'A fazer',andamento:'Em andamento',concluida:'Concluída'};
 const STATUS_CLASS = {afazer:'status-afazer',andamento:'status-andamento',concluida:'status-concluida'};
@@ -449,12 +526,7 @@ function uid(){
 async function loadTasks(){
   try{
     const raw = localStorage.getItem(STORAGE_KEY);
-    if(raw){
-      tasks = JSON.parse(raw);
-    } else {
-      tasks = SEED_TASKS;
-      await saveTasks();
-    }
+    tasks = raw ? JSON.parse(raw) : [];
   }catch(e){
     tasks = [];
   }
@@ -469,8 +541,16 @@ async function saveTasks(){
   }
 }
 
+// O prazo entra antes da criticidade: uma tarefa atrasada ou vencendo hoje sobe ao
+// topo mesmo sendo de criticidade baixa. Empatada a urgência de prazo, vale a regra
+// antiga (criticidade > esforço > status).
 function sortByPriority(arr){
   return [...arr].sort((a,b)=>{
+    const da = dueInfo(a), db = dueInfo(b);
+    const urgentA = da.has && da.rank <= 0 && a.status !== 'concluida';
+    const urgentB = db.has && db.rank <= 0 && b.status !== 'concluida';
+    if(urgentA !== urgentB) return urgentA ? -1 : 1;
+    if(urgentA && urgentB && da.rank !== db.rank) return da.rank - db.rank;
     if(b.crit !== a.crit) return b.crit - a.crit;
     if(a.effort !== b.effort) return a.effort - b.effort;
     return STATUS_WEIGHT[a.status] - STATUS_WEIGHT[b.status];
@@ -500,7 +580,13 @@ function render(){
 
   const total = dayTasks.length;
   const done = dayTasks.filter(t=>t.status==='concluida').length;
-  countsEl.innerHTML = `<span><b>${total}</b> no dia</span><span><b>${done}</b> concluídas</span>`;
+  const vencendoHoje = dayTasks.filter(t => t.status !== 'concluida' && dueInfo(t).rank === 0).length;
+  countsEl.innerHTML =
+    `<span><b>${total}</b> no dia</span>` +
+    `<span><b>${done}</b> concluídas</span>` +
+    (vencendoHoje ? `<span style="color:var(--alta)"><b>${vencendoHoje}</b> vencendo hoje</span>` : '');
+
+  renderDeadlineBar();
 
   if(sorted.length === 0){
     const msg = (total > 0 && !showDone)
@@ -511,9 +597,10 @@ function render(){
   }
 
   listEl.innerHTML = sorted.map((t, idx) => `
-    <div class="task crit-${t.crit} ${t.status==='concluida'?'done':''}">
+    <div class="task crit-${t.crit} ${t.status==='concluida'?'done':''} ${dueInfo(t).overdue?'atrasada':''}">
       <div class="rank">${String(idx+1).padStart(2,'0')}</div>
       <div class="desc" title="${escapeHtml(t.desc)}">${escapeHtml(t.desc)}</div>
+      <span class="tag ${dueInfo(t).cls}" title="${t.due ? 'Prazo: ' + formatDateDisplay(t.due) : 'Sem prazo definido'}">${dueInfo(t).label || '—'}</span>
       <span class="tag tag-crit-${t.crit}">${CRIT_LABEL[t.crit]}</span>
       ${effortDots(t.effort)}
       <select class="status-select ${STATUS_CLASS[t.status]}" onclick="event.stopPropagation()" onchange="changeStatus('${t.id}', this.value)">
@@ -530,6 +617,44 @@ function render(){
   `).join('');
 }
 
+// Atraso não pertence a um dia só, então essa barra varre a base inteira — é o que
+// impede uma tarefa esquecida em outro dia de sumir de vista.
+function renderDeadlineBar(){
+  const bar = document.getElementById('deadline-bar');
+  const pendentes = tasks.filter(t => t.due && t.status !== 'concluida');
+  const atrasadas = pendentes.filter(t => dueInfo(t).overdue);
+  const hoje = pendentes.filter(t => dueInfo(t).rank === 0);
+
+  if(atrasadas.length === 0 && hoje.length === 0){
+    bar.className = 'deadline-bar hidden';
+    bar.innerHTML = '';
+    return;
+  }
+
+  const urgentes = [...atrasadas, ...hoje].sort((a,b) => dueInfo(a).rank - dueInfo(b).rank);
+  const resumo = [
+    atrasadas.length ? `<b>${atrasadas.length}</b> atrasada${atrasadas.length > 1 ? 's' : ''}` : '',
+    hoje.length ? `<b>${hoje.length}</b> vencendo hoje` : '',
+  ].filter(Boolean).join(' · ');
+
+  bar.className = 'deadline-bar';
+  bar.innerHTML =
+    `<span class="dl-title">Prazos</span><span>${resumo}</span>` +
+    urgentes.slice(0, 6).map(t =>
+      `<span class="dl-item" onclick="goToTask('${t.id}')" title="Prazo ${formatDateDisplay(t.due)} — clique para abrir o dia da tarefa">${escapeHtml(t.desc)} · ${dueInfo(t).label}</span>`
+    ).join('') +
+    (urgentes.length > 6 ? `<span style="color:var(--muted)">+${urgentes.length - 6}</span>` : '');
+}
+
+// Abre o dia em que a tarefa está agendada.
+function goToTask(id){
+  const t = tasks.find(x => x.id === id);
+  if(!t) return;
+  currentDate = t.date;
+  syncDayUI();
+  render();
+}
+
 async function addTask(){
   const descEl = document.getElementById('f-desc');
   const desc = descEl.value.trim();
@@ -538,10 +663,19 @@ async function addTask(){
   const crit = parseInt(document.getElementById('f-crit').value, 10);
   const effort = parseInt(document.getElementById('f-effort').value, 10);
   const status = document.getElementById('f-status').value;
+  const dueEl = document.getElementById('f-due');
+  const due = dueEl.value || null;
 
-  tasks.push({ id: uid(), desc, crit, effort, status, date: currentDate });
+  if(due && due < currentDate){
+    alert('O prazo não pode ser anterior ao dia da tarefa.');
+    dueEl.focus();
+    return;
+  }
+
+  tasks.push({ id: uid(), desc, crit, effort, status, date: currentDate, due });
   await saveTasks();
   descEl.value = '';
+  dueEl.value = '';
   descEl.focus();
   render();
 }
@@ -581,6 +715,7 @@ function openOverflow(id){
       <div class="modal">
         <h2>Transbordar tarefa</h2>
         <p style="font-size:13px; color:var(--muted); margin-top:-6px;">"${escapeHtml(t.desc)}"</p>
+        ${t.due ? `<p style="font-size:12px; color:${dueInfo(t).overdue ? 'var(--critica)' : 'var(--muted)'}; margin:0 0 4px;">Prazo desta tarefa: <b>${formatDateDisplay(t.due)}</b>${dueInfo(t).overdue ? ' — já atrasada' : ''}</p>` : ''}
         <label for="overflow-date">Mover para o dia</label>
         <input type="date" id="overflow-date" value="${defaultDate}">
         <div class="modal-actions">
@@ -600,6 +735,14 @@ async function doOverflow(id){
   if(!t) return;
   const newDate = document.getElementById('overflow-date').value;
   if(!newDate) return;
+
+  // Empurrar a tarefa para depois do prazo é uma decisão consciente, não um erro:
+  // avisamos e deixamos seguir se a pessoa confirmar.
+  if(t.due && newDate > t.due){
+    const ok = confirm(`Esse dia (${formatDateDisplay(newDate)}) é depois do prazo (${formatDateDisplay(t.due)}). Transbordar mesmo assim?`);
+    if(!ok) return;
+  }
+
   t.date = newDate;
   await saveTasks();
   closeEdit();
@@ -649,6 +792,10 @@ function openEdit(id){
             </select>
           </div>
           <div>
+            <label for="e-due">Prazo</label>
+            <input type="date" id="e-due" value="${t.due || ''}">
+          </div>
+          <div>
             <label for="e-status">Status</label>
             <select id="e-status">
               <option value="afazer" ${t.status==='afazer'?'selected':''}>A fazer</option>
@@ -678,8 +825,18 @@ async function saveEdit(id){
   if(!t) return;
   const desc = document.getElementById('e-desc').value.trim();
   if(!desc) return;
+
+  // Valida antes de mexer na tarefa: se o prazo for inválido, nada é alterado.
+  const novoDia = document.getElementById('e-date').value || t.date;
+  const novoPrazo = document.getElementById('e-due').value || null;
+  if(novoPrazo && novoPrazo < novoDia){
+    alert('O prazo não pode ser anterior ao dia da tarefa.');
+    return;
+  }
+
   t.desc = desc;
-  t.date = document.getElementById('e-date').value || t.date;
+  t.date = novoDia;
+  t.due = novoPrazo;
   t.crit = parseInt(document.getElementById('e-crit').value, 10);
   t.effort = parseInt(document.getElementById('e-effort').value, 10);
   t.status = document.getElementById('e-status').value;
@@ -705,7 +862,7 @@ function openImport(){
       <div class="modal">
         <h2>Importar tarefas</h2>
         <p style="font-size:13px; color:var(--muted); margin-top:-6px;">Cole um JSON exportado por este app. As tarefas serão adicionadas às já existentes — tarefas sem data vão para o dia aberto na tela (${formatDateDisplay(currentDate)}).</p>
-        <textarea id="import-text" style="width:100%; min-height:160px; background:var(--surface-2); border:1px solid var(--border); color:var(--text); border-radius:6px; padding:10px; font-family:var(--mono); font-size:12px;" placeholder='[{"desc":"Exemplo","crit":4,"effort":2,"status":"afazer"}]'></textarea>
+        <textarea id="import-text" style="width:100%; min-height:160px; background:var(--surface-2); border:1px solid var(--border); color:var(--text); border-radius:6px; padding:10px; font-family:var(--mono); font-size:12px;" placeholder='[{"desc":"Exemplo","crit":4,"effort":2,"status":"afazer","due":"2026-08-31"}]'></textarea>
         <div class="modal-actions">
           <button class="btn-ghost" onclick="closeEdit()">Cancelar</button>
           <button class="btn-primary" onclick="doImport()">Importar</button>
@@ -730,7 +887,8 @@ async function doImport(){
       date: /^\d{4}-\d{2}-\d{2}$/.test(t.date) ? t.date : currentDate,
       crit: [1,2,3,4].includes(Number(t.crit)) ? Number(t.crit) : 2,
       effort: [1,2,3,4,5].includes(Number(t.effort)) ? Number(t.effort) : 2,
-      status: ['afazer','andamento','concluida'].includes(t.status) ? t.status : 'afazer'
+      status: ['afazer','andamento','concluida'].includes(t.status) ? t.status : 'afazer',
+      due: /^\d{4}-\d{2}-\d{2}$/.test(t.due) ? t.due : null
     })).filter(t => t.desc);
     tasks = tasks.concat(imported);
     await saveTasks();
